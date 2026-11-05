@@ -2,64 +2,82 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pemindai QR PPA Kumanawarugu Ana</title>
-<script src="https://unpkg.com/html5-qrcode"></script>
-<style>
-body{font-family:Arial;background:#eef4f0;color:#173b32;text-align:center;padding:20px}
-.box{max-width:480px;margin:auto;background:white;padding:20px;border-radius:16px}
-button{background:#176b52;color:white;border:0;padding:14px;border-radius:10px;font-size:16px;width:100%;margin-top:15px}
-#reader{margin-top:15px}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scanner Absensi PPA Kumanawarugu Ana</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f3f5f7;
+    }
+    #reader {
+      max-width: 420px;
+      margin: 20px auto;
+    }
+    h2 { color: #17365d; }
+    #status { font-weight: bold; }
+  </style>
 </head>
 <body>
-<div class="box">
-<h2>PPA KUMANAWARUGU ANA</h2>
-<h3>Pemindai QR Lokasi Aula</h3>
-<p>Tekan tombol di bawah dan arahkan kamera ke QR resmi aula PPA.</p>
-<div id="reader"></div>
-<button onclick="mulaiScan()">BUKA KAMERA</button>
-<p id="status">Menunggu kamera...</p>
-</div>
+  <h2>ABSENSI PPA KUMANAWARUGU ANA</h2>
+  <p>Arahkan kamera ke QR Code resmi yang dipasang di aula.</p>
+  <div id="reader"></div>
+  <p id="status">Menyiapkan kamera...</p>
 
-<script>
-const URL_ABSENSI = "https://script.google.com/macros/s/AKfycbxSth0jKUu8ewMY2piufkY4SV-Bh7avCM16BSkKe9UOhvp2J3vGG4cUk04YNKSgPzfajA/exec";
-const QR_RESMI = "PPA_KUMANAWARUGU_ANA_AULA_2026";
-let scanner = null;
-let selesai = false;
+  <script>
+    const URL_ABSENSI =
+      "https://script.google.com/macros/s/AKfycbxBJwUF58qI2D1y5UxJQKklLr_JuEs0PKn0pE5ZgRa2TYJRWmqiwlfgXnCSsdxwvGOQrQ/exec";
 
-async function mulaiScan(){
-  const status = document.getElementById("status");
-  try {
-    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      throw new Error("Buka halaman melalui HTTPS di Google Chrome.");
-    }
-    if (!window.Html5Qrcode) {
-      throw new Error("Pemindai belum termuat. Periksa koneksi internet.");
-    }
-    if (!scanner) scanner = new Html5Qrcode("reader");
-    status.textContent = "Meminta izin kamera...";
-    await scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 230, height: 230 } },
-      async function(teks){
-        if(selesai) return;
-        if(teks.trim() !== QR_RESMI){
-          status.textContent = "QR tidak sesuai. Pindai QR resmi aula.";
-          return;
-        }
-        selesai = true;
-        status.textContent = "QR benar. Membuka halaman absensi...";
-        await scanner.stop();
-        window.location.href = URL_ABSENSI + "?qr=" + encodeURIComponent(teks.trim());
+    const QR_RESMI = "PPA_KUMANAWARUGU_ANA_AULA_2026";
+    let sudahDipindai = false;
+
+    function berhasilDipindai(teks) {
+      if (sudahDipindai) return;
+
+      const hasil = teks.trim();
+
+      if (hasil !== QR_RESMI) {
+        document.getElementById("status").textContent =
+          "QR Code tidak dikenal. Pindai QR resmi aula.";
+        return;
       }
-    );
-    status.textContent = "Kamera aktif. Arahkan ke QR aula.";
-  } catch(e) {
-    status.textContent = "Kamera gagal: " + (e.message || e);
-  }
-}
-</script>
+
+      sudahDipindai = true;
+      document.getElementById("status").textContent =
+        "QR berhasil! Membuka halaman absensi...";
+
+      window.location.href =
+        URL_ABSENSI + "?qr=" + encodeURIComponent(hasil);
+    }
+
+    const scanner = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras().then(kamera => {
+      if (!kamera || kamera.length === 0) {
+        throw new Error("Kamera tidak ditemukan.");
+      }
+
+      const belakang = kamera.find(k =>
+        /back|rear|environment/i.test(k.label)
+      );
+
+      const kameraId = belakang ? belakang.id : kamera[0].id;
+
+      scanner.start(
+        kameraId,
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        berhasilDipindai
+      ).then(() => {
+        document.getElementById("status").textContent =
+          "Kamera aktif. Silakan pindai QR aula.";
+      });
+    }).catch(error => {
+      document.getElementById("status").textContent =
+        "Kamera gagal dibuka: " + error;
+    });
+  </script>
 </body>
 </html>
